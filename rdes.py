@@ -116,39 +116,45 @@ class RDESCompressor():
 
 		Sets the 32nd bit (MSB) to 0, denoting a uint32.
 		"""
-		b1 = value>>24 & 0b01111111 #Set Byte8==0
-		b2 = value>>16
-		b3 = value>>8
-		b4 = value
+		b1 = value>>24 & 0b01111111 #Set Bit8=0
+		b2 = byte( value>>16 )
+		b3 = byte( value>>8 )
+		b4 = byte( value )
 
-		self.__compressed.append(byte(b1)) #MSB
-		self.__compressed.append(byte(b2))
-		self.__compressed.append(byte(b3))
-		self.__compressed.append(byte(b4)) #LSB
+		self.__compressed.append(b1) #MSB
+		self.__compressed.append(b2)
+		self.__compressed.append(b3)
+		self.__compressed.append(b4) #LSB
 
 
 	def __write3Bytes(self, b1, b2, b3):
 		"""
-		Writes 3 bytes directly to the compressed cache
+		Writes 3 bytes directly to the compressed cache.
+
+		Inputs MUST be bytes (8 bits)
 		"""
-		self.__compressed.append(byte(b1)) #MSB
-		self.__compressed.append(byte(b2))
-		self.__compressed.append(byte(b3)) #LSB
+		self.__compressed.append(b1) #MSB
+		self.__compressed.append(b2)
+		self.__compressed.append(b3) #LSB
 
 
 	def __write2Bytes(self, b1, b2):
 		"""
 		Writes 2 bytes directly to the compressed cache
+
+		Inputs MUST be bytes (8 bits)
 		"""
-		self.__compressed.append(byte(b1)) #MSB
-		self.__compressed.append(byte(b2)) #LSB
+		self.__compressed.append(b1) #MSB
+		self.__compressed.append(b2) #LSB
 
 
 	def __write1Byte(self, b1):
 		"""
 		Writes 1 byte directly to the compressed cache
+
+		Inputs MUST be bytes (8 bits)
 		"""
-		self.__compressed.append(byte(b1)) #MSB
+		self.__compressed.append(b1) #MSB
 
 
 	def writeCompressedRow(self, data:list):
@@ -232,8 +238,8 @@ class RDESCompressor():
 					
 					byte1 = 0b11000000 | offset #captures D05 to D01
 					
-					if (not add): byte1 = byte1 & 0b10111111 # Set Byte7 to 0 (subtracting)
-					byte1 = byte1 & 0b11011111 # Set Byte6 to 0 (size=1)
+					if (not add): byte1 = byte1 & 0b10111111 # Set Bit7 to 0 (subtracting)
+					byte1 = byte1 & 0b11011111 # Set Bit6 to 0 (size=1)
 
 					# Write
 					self.__write1Byte(byte1)
@@ -245,8 +251,8 @@ class RDESCompressor():
 					byte1 = 0b11110000 | offset>>8 #captures D13 to D09
 					byte2 = 0b11111111 & offset #captures D08 to D01
 					
-					if (not add): byte1 = byte1 & 0b10111111 # Set Byte7 to 0 (subtracting)
-					byte1 = byte1 & 0b11101111 # Set Byte5 to 0 (size=2)
+					if (not add): byte1 = byte1 & 0b10111111 # Set Bit7 to 0 (subtracting)
+					byte1 = byte1 & 0b11101111 # Set Bit5 to 0 (size=2)
 
 					# Write
 					self.__write2Bytes(byte1, byte2)
@@ -258,7 +264,7 @@ class RDESCompressor():
 					byte2 = 0b11111111 & offset>>8 #captures D16 to D09
 					byte3 = 0b11111111 & offset #captures D08 to D01
 
-					if (not add): byte1 = byte1 & 0b10111111 # Set Byte7 to 0 (subtracting)
+					if (not add): byte1 = byte1 & 0b10111111 # Set Bit7 to 0 (subtracting)
 					# Write
 					self.__write3Bytes(byte1, byte2, byte3)
 					if self.__verbose: print(f"\tWriting 3 compressed bytes")
@@ -306,8 +312,8 @@ class RDESCompressor():
 					byte1 = 0b11100000 | offset>>8 #captures D13 to D09
 					byte2 = 0b11111111 & offset #captures D08 to D01
 					
-					if (not add): byte1 = byte1 & 0b10111111 # Set Byte7 to 0 (subtracting)
-					byte1 = byte1 & 0b11011111 # Set Byte6 to 0 (size=2)
+					if (not add): byte1 = byte1 & 0b10111111 # Set Bit7 to 0 (subtracting)
+					byte1 = byte1 & 0b11011111 # Set Bit6 to 0 (size=2)
 
 					# Write
 					self.__write2Bytes(byte1, byte2)
@@ -319,7 +325,7 @@ class RDESCompressor():
 					byte2 = 0b11111111 & offset>>8 #captures D16 to D09
 					byte3 = 0b11111111 & offset #captures D08 to D01
 
-					if (not add): byte1 = byte1 & 0b10111111 # Set Byte7 to 0 (subtracting)
+					if (not add): byte1 = byte1 & 0b10111111 # Set Bit7 to 0 (subtracting)
 					# Write
 					self.__write3Bytes(byte1, byte2, byte3)
 					if self.__verbose: print(f"\tWriting 3 compressed bytes")
@@ -364,7 +370,7 @@ class RDESCompressor():
 				byte2 = 0b11111111 & offset>>8 #captures D16 to D09
 				byte3 = 0b11111111 & offset #captures D08 to D01
 
-				if (not add): byte1 = byte1 & 0b10111111 # Set Byte7 to 0 (subtracting)
+				if (not add): byte1 = byte1 & 0b10111111 # Set Bit7 to 0 (subtracting)
 				# Write
 				self.__write3Bytes(byte1, byte2, byte3)
 				if self.__verbose: print(f"\tWriting 3 compressed bytes")
@@ -484,7 +490,9 @@ class RDESDecompressor():
 
 	def decompress(self, bytes):
 		"""
-		Decompresses and returns the provided data.
+		Decompresses the provided data and returns the original data.
+
+		In format of list of lists, with each sub-list representing a row.
 		"""
 		## Make temp variables
 		decodedRows = []
