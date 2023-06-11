@@ -558,7 +558,7 @@ class RDESDecompressor():
 				## Calculate value
 				decodedVal = refVal + offset
 
-				if self.__verbose: print(f"\tDecoded offset = {offset}, size={size}B -> {refVal} + {offset} =  {decodedVal}")
+				if self.__verbose: print(f"\tDecoded offset = {offset}, size={size}B -> {refVal} + {offset} = {decodedVal}")
 
 			else: # Raw uint32 found - decode
 				## Isolate bytes

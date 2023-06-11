@@ -24,9 +24,9 @@ Disclaimer: This is a very simple concept; I am absolutely not the first person 
 
 
 # Introduction
-Real-time Deviation Encoding Scheme (RDES) is a simple, lossless, real-time compression algorithm for sequences of 32-bit integers. It is optimized to have an extremely lightweight compression process (good for low-power embedded systems), while still maintaining an appealing compression ratio (4.0 in the best case, 1.0 in the worst case).
+Real-time Deviation Encoding Scheme (RDES) is a simple, lossless, real-time compression algorithm for sequences of 31-bit integers. It is optimized to have an extremely lightweight compression process (good for low-power embedded systems), while still maintaining an appealing compression ratio (4.0 in the best case, 1.0 in the worst case).
 
-The sacrifice for the extreme light-weight is the maximum storable number; a 3**1**-bit value, as opposed to a standard 32-bit value. This means it can store values from 0 to 2,147,483,647 (unsigned), or -1,073,741,823 to +1,073,741,823 (signed). Due to the nature of the deviation encoding, values may exceed these limits (so long as they're not the initial values) up to the maximum value supported by the device running the decompression. Storing values exceeding this range results in undefined behaviour.
+The sacrifice for the extreme light-weight is the maximum storable number; a 3**1**-bit value, as opposed to a standard 32-bit value that comes with the uint32_t type. This means it can store values from 0 to 2,147,483,647 (unsigned), or -1,073,741,823 to +1,073,741,823 (signed). Due to the nature of the deviation encoding, values may exceed these limits (so long as they're not the initial values) up to the maximum value supported by the device running the decompression. Storing values exceeding this range results in undefined behaviour.
 
 The core concept is simple; when storing a sequence of numbers, storing just the change between each value results in much smaller values than the original data. These smaller values may then be stored in a fewer number of bytes, reducing the storage required. This technique proves very effective when the sequence of numbers varies by small amounts.
 
@@ -40,13 +40,13 @@ This repository serves as a technical explanation of the algorithm, a guideline 
 # Creation
 RDES is intended for use on low-power embedded logging hardware, where the time and complexity of the compression algorithm must be limited. The decompression algorithm would be run on an external device (such as a laptop computer), so the decompression algorithm does not have the same constraints.
 
-The need for an algorithm such as this arose while I was working on an embedded hardware project - the device must record various numeric sensor values (uint32) at a fast rate (~20Hz) for as long as possible, but the hardware only has 4MiB of flash storage available to do so. My goal was to create a compression scheme which was lightweight and efficient (as to not impede the fast logging rate), while still achieving a moderate compression ratio for data while still being lossless. Due to the real-time nature of sensor logging, as well as the limited memory and processing power available, the algorithm would have to be able to operate with little context of the entire dataset.
+The need for an algorithm such as this arose while I was working on an embedded hardware project - the device must record various numeric sensor values (uint32_t) at a fast rate (~20Hz) for as long as possible, but the hardware only has 4MiB of flash storage available to do so. My goal was to create a compression scheme which was lightweight and efficient (as to not impede the fast logging rate), while still achieving a moderate compression ratio for data while still being lossless. Due to the real-time nature of sensor logging, as well as the limited memory and processing power available, the algorithm would have to be able to operate with little context of the entire dataset.
 
 After a few days of playing around with ideas, I came up with RDES. The idea is absolutely *not* novel (storing the changes of values rather than the value itself each iteration is actually a common practice), but I was not able to find an implementation that met my goal of lightweight and real-time compression.
 
 
 # Variants
-There are three variants of RDES; RDES1, RDES2, and RDES3. The number denotes the number of potential levels of compression a uint32 can be stored as; 1-byte, 2-bytes, or 3-bytes. RDES1 can only compress values to 3 bytes, whereas RDES3 could compress values to 1, 2, *or* 3 bytes. Each variant has its own strengths and weaknesses relating to peak compression ratio, efficiency, and performance with different ranges of values. Below is a brief summary of each;
+There are three variants of RDES; RDES1, RDES2, and RDES3. The number denotes the number of potential levels of compression a uint32_t can be stored as; 1-byte, 2-bytes, or 3-bytes. RDES1 can only compress values to 3 bytes, whereas RDES3 could compress values to 1, 2, *or* 3 bytes. Each variant has its own strengths and weaknesses relating to peak compression ratio, efficiency, and performance with different ranges of values. Below is a brief summary of each;
 
 | Variant | Peak Compression Ratio | Compression Speed | Optimized For
 | ------------- | ------------- | ------------- | ------------- |
@@ -54,7 +54,7 @@ There are three variants of RDES; RDES1, RDES2, and RDES3. The number denotes th
 | RDES2 | 2.00 (50%)  | Faster* | Moderate variations in data; ±10<sup>3</sup>
 | RDES3 | 4.00 (25%)  | Fast* | Small variations in data; ±10<sup>1</sup>
 
-\**theoretically; differences are very minor regardless*
+\**theoretically; differences are very minor, regardless*
 
 Benchmarks for each algorithm can be found in a later section.
 
@@ -64,7 +64,7 @@ To make the RDES scheme as intuitive as possible, an example highlighting many o
 
 Let us assume we're sampling a single sensor over time - we have to store several 32-bit integers over time. As the value of the sensor should never approach the maximum value of a 32-bit storage space, the RDES algorithm should work. The data would be stored on a flash module or in an array. For this example, the data will be presented in a table format. Below is a sample of data recorded in a table.
 
-| Timestamp  | Binary Value (uint32) | Decimal Value | Value Change
+| Timestamp  | Binary Value (uint32_t) | Decimal Value | Value Change
 | ------------- | ------------- | ------------- | ------------- |
 | 1             | 01000100 01011100 00110001 01110001  | 1146892657 | 
 | 2             | 01000100 01011100 00110101 01011001  | 1146893657 | + 1000
@@ -72,7 +72,7 @@ Let us assume we're sampling a single sensor over time - we have to store severa
 
 While we are storing large values each timestep, the actual number of binary data changing between readings is quite small. Instead of storing the entire number each timestep, we can just store how much the value has changed since the previous reading (aka. the deviation). Doing so, we get the following table:
 
-| Timestamp  | Binary Value (uint32) | Decimal Value
+| Timestamp  | Binary Value (uint32_t) | Decimal Value
 | ------------- | ------------- | ------------- |
 | 1             | 01000100 01011100 00110001 01110001  | 1146892657
 | 2             | 00000000 00000000 00000011 11101000  | 1000
@@ -82,7 +82,7 @@ It is now very clear that the first two bytes of reading 2 and 3 are effectively
 
 Simply discarding "unused" bytes creates several problems, however.
 
-**The first issue** is, when decompressing the data, how can one differentiate between a uint32 (4 bytes) and an offset value (1-3 bytes)? This is where the 31-bit limitation comes in; the most significant bit (MSB) of a 32-bit value is allocated as a "type" flag bit - "0" means it is the start of a 4-byte uint32, while "1" means it is the start of an offset value from the previous value.
+**The first issue** is, when decompressing the data, how can one differentiate between a uint32_t (4 bytes) and an offset value (1-3 bytes)? This is where the 31-bit limitation comes in; the most significant bit (MSB) of a 32-bit value is allocated as a "type" flag bit - "0" means it is the start of a 4-byte uint32_t, while "1" means it is the start of an offset value from the previous value.
 
 **The second issue** is that we currently only store the magnitude of the offset - we need to store its sign too, depending on if the value has increased or decreased since the last recorded value. When storing an offset, we allocate the second MSB as a "sign" flag bit - "0" means subtraction, "1" means addition.
 
@@ -96,10 +96,10 @@ Below is a condensed set of information about the bit allocation schemes for RDE
 
 
 ---
-## **Uncompressed uint32 Bit Allocation**
-<img src="img/Uint32_Layout.png" width=40%>
+## **Uncompressed uint32_t Bit Allocation**
+<img src="img/Uint32_Layout.png" width=350px>
 
-No compression applied; the first bit being "0" just means this is a regular uint32. This gives 31 bits for value storage.
+No compression applied; the first bit being "0" just means this is a regular uint32_t. This gives 31 bits for value storage.
 
 | Bytes  | Bits | FlagBits | ValueBits | MaxValue
 | --- | --- | --- | --- | --- 
@@ -108,7 +108,7 @@ No compression applied; the first bit being "0" just means this is a regular uin
 
 ---
 ## **RDES1 Bit Allocation**
-<img src="img/RDES1_Layout.png" width=40%>
+<img src="img/RDES1_Layout.png" width=350px>
 
 The first bit denotes this is an offset value, the second bit denote an addition, and the remaining six bits can be used to store part of the offset. The following two bytes will store the rest of the value, giving a total of 22 bits for storage. As offsets always consume 3 bytes, no bit needs to be allocated for storing size.
 
@@ -119,7 +119,7 @@ The first bit denotes this is an offset value, the second bit denote an addition
 
 ---
 ## **RDES2 Bit Allocation**
-<img src="img/RDES2_Layout.png" width=40%>
+<img src="img/RDES2_Layout.png" width=350px>
 
 The first bit denotes this is an offset value, the second bit denotes an addition, the third bit denotes size ("0" = 2 bytes, "1" = 3 bytes), and the remaining five bits can be used to store part of the offset. The following one to two bytes will store the rest of the value, giving either 13 or 21 bits for storage.
 
@@ -131,8 +131,8 @@ The first bit denotes this is an offset value, the second bit denotes an additio
 
 ---
 ## **RDES3 Bit Allocation**
-<img src="img/RDES3_LayoutA.png" width=40%>
-<img src="img/RDES3_LayoutB.png" width=40%>
+<img src="img/RDES3_LayoutA.png" width=350px>
+<img src="img/RDES3_LayoutB.png" width=350px>
 
 The first bit denotes this is an offset value, and the second bit denotes a subtraction. The third and fourth bits denote size ("0*" = 1 byte, "10" = 2 bytes, "11" = 3 bytes). If the third bit is "0", this means a size of one byte, and the 4th bit is then allocated to storing value information instead of size. The remaining four or five bits can be used to store part of the offset. If size is two or three bytes, the following one or two bytes will store the rest of the value. This gives either 5, 12, or 20 bits for storage.
 
@@ -255,7 +255,7 @@ The `benchmark.py` file runs a series of tests on all variants of RDES, allowing
 
 ## Compression/Decompression Time: Linear Increments
 
-500000 rows per test. Times are in milliseconds. Very "sterile" environment; not very reflective of real world. Note the margin of error on these readings is very high.
+500000 rows per test. Times are in milliseconds; in (compression, decompression) pairs. Very "sterile" environment; not very reflective of real world. Note the margin of error on these readings is very high.
 
 <details>
 <summary><b>TABLE: Results</b></summary>
@@ -277,7 +277,7 @@ The `benchmark.py` file runs a series of tests on all variants of RDES, allowing
 
 ## Compression/Decompression Time: Random Increments
 
-500000 rows per test. Times are in milliseconds. More reflective of real-world data. Note the margin of error on these readings is very high.
+500000 rows per test. Times are in milliseconds; in (compression, decompression) pairs. More reflective of real-world data. Note the margin of error on these readings is very high.
 
 <details>
 <summary><b>TABLE: Results</b></summary>
@@ -331,7 +331,7 @@ lastVal = 0 	# Last processed value
 
 # Determine sign of offset
 add = False
-if (lastVal > input): add = True
+if (input > lastVal): add = True
 
 # Determine magnitude of offset
 offset = abs( lastVal - input )
@@ -390,8 +390,8 @@ while (position < size of compressedData):
 	# Read first byte
 	byte1 = compressedData[position]
 
-	# Check if uint32 or offset
-	if (Bit8 == 0): # uint32
+	# Check if uint32_t or offset
+	if (Bit8 == 0): # uint32_t
 		# Read remaining bytes
 		byte2 = compressedData[position+1]
 		byte3 = compressedData[position+2]
@@ -447,7 +447,7 @@ lastVal = 0 			# Last processed value
 
 # Determine sign of offset
 add = False
-if (lastVal > input): add = True
+if (input > lastVal): add = True
 
 # Determine magnitude of offset
 offset = abs( lastVal - input )
@@ -528,8 +528,8 @@ while (position < size of compressedData):
 	# Read first byte
 	byte1 = compressedData[position]
 
-	# Check if uint32 or offset
-	if (Bit8 == 0): # uint32
+	# Check if uint32_t or offset
+	if (Bit8 == 0): # uint32_t
 		# Read remaining bytes
 		byte2 = compressedData[position+1]
 		byte3 = compressedData[position+2]
@@ -595,7 +595,7 @@ lastVal = 0 	# Last processed value
 
 # Determine sign of offset
 add = False
-if (lastVal > input): add = True
+if (input > lastVal): add = True
 
 # Determine magnitude of offset
 offset = abs( lastVal - input )
@@ -694,8 +694,8 @@ while (position < size of compressedData):
 	# Read first byte
 	byte1 = compressedData[position]
 
-	# Check if uint32 or offset
-	if (Bit8 == 0): # uint32
+	# Check if uint32_t or offset
+	if (Bit8 == 0): # uint32_t
 		# Read remaining bytes
 		byte2 = compressedData[position+1]
 		byte3 = compressedData[position+2]
